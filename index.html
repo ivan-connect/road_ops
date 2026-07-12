@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero de Cobertura — Prueba</title>
+<style>
+  :root {
+    --asfalto: #1f2937;
+    --asfalto-claro: #374151;
+    --verde: #16a34a;
+    --ambar: #d97706;
+    --rojo: #dc2626;
+    --texto: #f3f4f6;
+  }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--asfalto);
+    color: var(--texto);
+    padding: 24px;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .sub { color: #9ca3af; font-size: 13px; margin-bottom: 20px; }
+  .status {
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: var(--asfalto-claro);
+    font-size: 13px;
+    margin-bottom: 20px;
+  }
+  .status.ok { border-left: 4px solid var(--verde); }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #4b5563;
+    padding: 6px 8px;
+    text-align: center;
+  }
+  th { background: var(--asfalto-claro); }
+  td.agente { text-align: left; font-weight: 600; background: var(--asfalto-claro); }
+  .cubierto { background: var(--verde); }
+  .ajustado { background: var(--ambar); }
+  .deficit { background: var(--rojo); }
+  button {
+    background: var(--asfalto-claro);
+    color: var(--texto);
+    border: 1px solid #6b7280;
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-bottom: 20px;
+  }
+  button:hover { background: #4b5563; }
+</style>
+</head>
+<body>
+  <h1>Tablero de Cobertura — Asistencia en Carretera 24/7</h1>
+  <div class="sub">Prueba de despliegue en GitHub Pages — datos de ejemplo (sin conexión al webhook aún)</div>
+
+  <div id="status" class="status ok">✅ Página cargando correctamente — GitHub Pages funcionando</div>
+  <br>
+  <button onclick="actualizar()">🔄 Actualizar ahora</button>
+
+  <table id="tabla"></table>
+
+  <script>
+    // --- Datos de ejemplo, mismo esquema que devolverá el webhook de n8n ---
+    const DATOS_PRUEBA = {
+      updatedAt: new Date().toISOString(),
+      agents: ["Juan Pérez", "María Gómez", "Carlos Ruiz"],
+      cells: [
+        { day: 1, hour: 8, agent: "Juan Pérez", scheduled: true },
+        { day: 1, hour: 9, agent: "Juan Pérez", scheduled: true },
+        { day: 1, hour: 8, agent: "María Gómez", scheduled: true },
+        { day: 1, hour: 9, agent: "María Gómez", scheduled: false },
+        { day: 1, hour: 8, agent: "Carlos Ruiz", scheduled: false },
+      ],
+      expectedLoad: [
+        { day: 1, hour: 8, load: 2 },
+        { day: 1, hour: 9, load: 3 },
+      ]
+    };
+
+    function estadoCelda(agente, day, hour, cells, expectedLoad) {
+      const cell = cells.find(c => c.agent === agente && c.day === day && c.hour === hour);
+      const carga = expectedLoad.find(e => e.day === day && e.hour === hour);
+      if (!cell || !cell.scheduled) return "deficit";
+      if (carga && carga.load > 2) return "ajustado";
+      return "cubierto";
+    }
+
+    function pintar(data) {
+      const horas = [...Array(24).keys()];
+      const tabla = document.getElementById("tabla");
+      let html = "<tr><th>Agente</th>" + horas.map(h => `<th>${h}h</th>`).join("") + "</tr>";
+      data.agents.forEach(agente => {
+        html += `<tr><td class="agente">${agente}</td>`;
+        horas.forEach(h => {
+          const estado = estadoCelda(agente, 1, h, data.cells, data.expectedLoad);
+          html += `<td class="${estado}"></td>`;
+        });
+        html += "</tr>";
+      });
+      tabla.innerHTML = html;
+      document.getElementById("status").innerText =
+        `✅ Última actualización: ${new Date(data.updatedAt).toLocaleTimeString()}`;
+    }
+
+    function actualizar() {
+      // Por ahora solo repinta los datos de ejemplo con timestamp nuevo
+      DATOS_PRUEBA.updatedAt = new Date().toISOString();
+      pintar(DATOS_PRUEBA);
+    }
+
+    pintar(DATOS_PRUEBA);
+  </script>
+</body>
+</html>
