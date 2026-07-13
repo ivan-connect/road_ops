@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Torre de Control · Horarios</title>
+<title>Horarios Cabina Road Col</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -201,6 +201,24 @@
     color: var(--turquoise);
     border-color: rgba(39,155,176,0.35);
     background: rgba(39,155,176,0.08);
+  }
+
+  .team-section-row {
+    display: grid;
+    grid-template-columns: 210px repeat(24, 1fr);
+    align-items: center;
+    height: 30px;
+    background: rgba(255,255,255,0.02);
+  }
+  .team-section-row .team-section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--orange);
+    grid-column: 1 / -1;
+    padding-left: 2px;
   }
 
   .card + .card { margin-top: 20px; }
@@ -599,8 +617,7 @@
 
   <header>
     <div>
-      <div class="page-label">torre de control</div>
-      <h1>Horarios</h1>
+      <h1>Horarios Cabina Road Col</h1>
     </div>
     <div class="header-right">
       <span class="updated" id="updated-label"></span>
@@ -618,9 +635,11 @@
   </div>
 
   <div class="team-tabs" id="team-tabs">
+    <button class="team-tab" data-team="__all__">Todos</button>
     <button class="team-tab active" data-team="TC">Torre de Control</button>
     <button class="team-tab" data-team="Back">Back</button>
     <button class="team-tab" data-team="Supervisor">Supervisores</button>
+    <button class="team-tab" data-team="Front">Front</button>
   </div>
 
   <!-- DAY VIEW -->
@@ -789,18 +808,39 @@
 
     dayLabel.textContent = `${DAY_NAMES[dayOfWeek]} · ${selectedDate.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})}`;
 
-    const cellsForDay = (rawData.cells || []).filter(c =>
-      c.day === dayOfWeek && c.scheduled && (!hasTeamData || c.team === currentTeam)
-    );
+    const cellsForDay = (rawData.cells || []).filter(c => {
+      if (c.day !== dayOfWeek || !c.scheduled) return false;
+      if (!hasTeamData) return true;
+      if (currentTeam === '__all__') return c.team === 'TC' || c.team === 'Back' || c.team === 'Supervisor' || c.team === 'Front';
+      return c.team === currentTeam;
+    });
+
+    const isAllView = currentTeam === '__all__' && hasTeamData;
+    const TEAM_ORDER = ['TC', 'Back', 'Supervisor', 'Front'];
+    const TEAM_LABELS = { TC: 'Torre de Control', Back: 'Back', Supervisor: 'Supervisores', Front: 'Front' };
+
     const byAgent = {};
+    const agentTeam = {};
     for (const c of cellsForDay) {
       if (!byAgent[c.agent]) byAgent[c.agent] = [];
       byAgent[c.agent].push(c.hour);
+      agentTeam[c.agent] = c.team;
     }
-    const agentNames = Object.keys(byAgent).sort((a,b) => {
-      const minA = Math.min(...byAgent[a]), minB = Math.min(...byAgent[b]);
-      return minA !== minB ? minA-minB : a.localeCompare(b);
-    });
+    let agentNames;
+    if (isAllView) {
+      // Orden: agrupado por equipo, y dentro de cada equipo por hora de inicio
+      agentNames = Object.keys(byAgent).sort((a,b) => {
+        const teamA = TEAM_ORDER.indexOf(agentTeam[a]), teamB = TEAM_ORDER.indexOf(agentTeam[b]);
+        if (teamA !== teamB) return teamA - teamB;
+        const minA = Math.min(...byAgent[a]), minB = Math.min(...byAgent[b]);
+        return minA !== minB ? minA-minB : a.localeCompare(b);
+      });
+    } else {
+      agentNames = Object.keys(byAgent).sort((a,b) => {
+        const minA = Math.min(...byAgent[a]), minB = Math.min(...byAgent[b]);
+        return minA !== minB ? minA-minB : a.localeCompare(b);
+      });
+    }
 
     if (nowLineInterval) clearInterval(nowLineInterval);
 
@@ -829,7 +869,12 @@
           ${Array.from({length:24},(_,h)=>`<div class="hour-label">${String(h).padStart(2,'0')}</div>`).join('')}
         </div>
         <div class="gantt-body" id="gantt-body">`;
+    let lastTeamShown = null;
     for (const agent of agentNames) {
+      if (isAllView && agentTeam[agent] !== lastTeamShown) {
+        lastTeamShown = agentTeam[agent];
+        html += `<div class="team-section-row"><div class="team-section-label">${TEAM_LABELS[lastTeamShown] || lastTeamShown}</div></div>`;
+      }
       const ranges = buildRanges(byAgent[agent]);
       html += `<div class="agent-row">
         <div class="agent-name" title="${agent}">${agent}</div>
@@ -862,18 +907,35 @@
   function renderWeek() {
     if (!rawData) return;
     const todayDow = new Date().getDay();
+    const isAllView = currentTeam === '__all__' && hasTeamData;
+    const TEAM_ORDER = ['TC', 'Back', 'Supervisor', 'Front'];
+    const TEAM_LABELS = { TC: 'Torre de Control', Back: 'Back', Supervisor: 'Supervisores', Front: 'Front' };
 
     // Group all scheduled cells by agent, then by day
     const byAgent = {};
+    const agentTeam = {};
     for (const c of (rawData.cells || [])) {
       if (!c.scheduled) continue;
-      if (hasTeamData && c.team !== currentTeam) continue;
+      if (hasTeamData) {
+        if (isAllView) {
+          if (!(c.team === 'TC' || c.team === 'Back' || c.team === 'Supervisor' || c.team === 'Front')) continue;
+        } else if (c.team !== currentTeam) continue;
+      }
       if (!byAgent[c.agent]) byAgent[c.agent] = {};
       if (!byAgent[c.agent][c.day]) byAgent[c.agent][c.day] = [];
       byAgent[c.agent][c.day].push(c.hour);
+      agentTeam[c.agent] = c.team;
     }
 
-    const agentNames = Object.keys(byAgent).sort((a,b) => a.localeCompare(b));
+    let agentNames;
+    if (isAllView) {
+      agentNames = Object.keys(byAgent).sort((a,b) => {
+        const teamA = TEAM_ORDER.indexOf(agentTeam[a]), teamB = TEAM_ORDER.indexOf(agentTeam[b]);
+        return teamA !== teamB ? teamA - teamB : a.localeCompare(b);
+      });
+    } else {
+      agentNames = Object.keys(byAgent).sort((a,b) => a.localeCompare(b));
+    }
 
     if (agentNames.length === 0) {
       weekContent.innerHTML = '<div class="empty-note">Sin datos de agentes.</div>';
@@ -886,7 +948,12 @@
       <th>Horas</th>
     </tr></thead><tbody>`;
 
+    let lastTeamShown = null;
     for (const agent of agentNames) {
+      if (isAllView && agentTeam[agent] !== lastTeamShown) {
+        lastTeamShown = agentTeam[agent];
+        html += `<tr><td colspan="9" style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--orange);background:rgba(255,255,255,0.02);border-bottom:1px solid var(--border-soft);">${TEAM_LABELS[lastTeamShown] || lastTeamShown}</td></tr>`;
+      }
       let totalHours = 0;
       let rowCells = '';
       for (const d of WEEK_ORDER) {
@@ -908,8 +975,16 @@
 
   function renderCoverage() {
     if (!rawData) return;
+    if (currentTeam === '__all__') {
+      coverageContent.innerHTML = '<div class="empty-note">Selecciona un equipo específico (Torre de Control o Back) para ver la cobertura.</div>';
+      return;
+    }
     if (currentTeam === 'Supervisor') {
       coverageContent.innerHTML = '<div class="empty-note">La cobertura no aplica para Supervisores (no cuentan para la capacidad de servicio).</div>';
+      return;
+    }
+    if (currentTeam === 'Front') {
+      coverageContent.innerHTML = '<div class="empty-note">La cobertura no aplica para Front (no se estima personal requerido para este equipo).</div>';
       return;
     }
     if (!hasTeamData || !rawData.expectedLoad) {
@@ -962,8 +1037,16 @@
 
   function renderForecast() {
     if (!rawData) return;
+    if (currentTeam === '__all__') {
+      forecastContent.innerHTML = '<div class="empty-note">Selecciona un equipo específico (Torre de Control o Back) para ver el forecast.</div>';
+      return;
+    }
     if (currentTeam === 'Supervisor') {
       forecastContent.innerHTML = '<div class="empty-note">El forecast no aplica para Supervisores.</div>';
+      return;
+    }
+    if (currentTeam === 'Front') {
+      forecastContent.innerHTML = '<div class="empty-note">El forecast no aplica para Front.</div>';
       return;
     }
     if (!rawData.expectedLoad) {
@@ -1011,8 +1094,16 @@
 
   function renderHeatmap() {
     if (!rawData) return;
+    if (currentTeam === '__all__') {
+      heatmapContent.innerHTML = '<div class="empty-note">Selecciona un equipo específico (Torre de Control o Back) para ver el mapa de calor.</div>';
+      return;
+    }
     if (currentTeam === 'Supervisor') {
       heatmapContent.innerHTML = '<div class="empty-note">El mapa de calor no aplica para Supervisores.</div>';
+      return;
+    }
+    if (currentTeam === 'Front') {
+      heatmapContent.innerHTML = '<div class="empty-note">El mapa de calor no aplica para Front.</div>';
       return;
     }
     const heatmapArr = (rawData.heatmapByTipo && rawData.heatmapByTipo[currentTeam]) || null;
