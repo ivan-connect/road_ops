@@ -524,7 +524,20 @@
     if (nowLineInterval) clearInterval(nowLineInterval);
 
     if (agentNames.length === 0) {
-      dayContent.innerHTML = '<div class="empty-note">Sin agentes programados este día.</div>';
+      const totalCells = (rawData.cells || []).length;
+      const distinctDays = [...new Set((rawData.cells || []).map(c => c.day))].sort();
+      const distinctDayTypes = [...new Set((rawData.cells || []).map(c => typeof c.day))];
+      const scheduledTrueCount = (rawData.cells || []).filter(c => c.scheduled).length;
+      dayContent.innerHTML = `
+        <div class="empty-note">
+          Sin agentes programados este día.<br><br>
+          <strong>Diagnóstico:</strong><br>
+          Total de celdas en el JSON: ${totalCells}<br>
+          Celdas con scheduled=true: ${scheduledTrueCount}<br>
+          Valores distintos de "day" encontrados: [${distinctDays.join(', ')}]<br>
+          Tipo(s) de dato de "day": ${distinctDayTypes.join(', ')}<br>
+          Buscando day === ${dayOfWeek} (tipo: ${typeof dayOfWeek})
+        </div>`;
       return;
     }
 
