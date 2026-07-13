@@ -620,6 +620,7 @@
   <div class="team-tabs" id="team-tabs">
     <button class="team-tab active" data-team="TC">Torre de Control</button>
     <button class="team-tab" data-team="Back">Back</button>
+    <button class="team-tab" data-team="Supervisor">Supervisores</button>
   </div>
 
   <!-- DAY VIEW -->
@@ -907,6 +908,10 @@
 
   function renderCoverage() {
     if (!rawData) return;
+    if (currentTeam === 'Supervisor') {
+      coverageContent.innerHTML = '<div class="empty-note">La cobertura no aplica para Supervisores (no cuentan para la capacidad de servicio).</div>';
+      return;
+    }
     if (!hasTeamData || !rawData.expectedLoad) {
       coverageContent.innerHTML = '<div class="empty-note">Datos de cobertura no disponibles aún.</div>';
       return;
@@ -957,6 +962,10 @@
 
   function renderForecast() {
     if (!rawData) return;
+    if (currentTeam === 'Supervisor') {
+      forecastContent.innerHTML = '<div class="empty-note">El forecast no aplica para Supervisores.</div>';
+      return;
+    }
     if (!rawData.expectedLoad) {
       forecastContent.innerHTML = '<div class="empty-note">Datos de forecast no disponibles aún.</div>';
       return;
@@ -1002,6 +1011,10 @@
 
   function renderHeatmap() {
     if (!rawData) return;
+    if (currentTeam === 'Supervisor') {
+      heatmapContent.innerHTML = '<div class="empty-note">El mapa de calor no aplica para Supervisores.</div>';
+      return;
+    }
     const heatmapArr = (rawData.heatmapByTipo && rawData.heatmapByTipo[currentTeam]) || null;
     if (!heatmapArr) {
       heatmapContent.innerHTML = '<div class="empty-note">Datos de mapa de calor no disponibles aún.</div>';
