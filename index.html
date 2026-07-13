@@ -296,6 +296,18 @@
     text-transform: capitalize;
   }
 
+  .forecast-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--text-mid);
+    background: rgba(241,91,43,0.05);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: -6px 0 18px;
+  }
+
   .state-msg {
     font-family: 'JetBrains Mono', monospace;
     font-size: 13px;
@@ -675,6 +687,9 @@
     <div class="card">
       <div class="card-title"><span class="dot"></span>forecast</div>
       <div class="card-desc">Servicios esperados por día, equipo seleccionado</div>
+      <div class="forecast-note">
+        Se calcula con base en el histórico, usando el percentil 80 (P80) de la cantidad de servicios, y asumiendo que un agente de Back gestiona cada servicio en 12 minutos, mientras que un agente de TC lo hace en 10 minutos.
+      </div>
       <div class="forecast-scroll">
         <div id="forecast-content"><div class="state-msg">Cargando datos…</div></div>
       </div>
@@ -816,7 +831,7 @@
     });
 
     const isAllView = currentTeam === '__all__' && hasTeamData;
-    const TEAM_ORDER = ['TC', 'Back', 'Supervisor', 'Front'];
+    const TEAM_ORDER = ['Supervisor', 'Front', 'Back', 'TC'];
     const TEAM_LABELS = { TC: 'Torre de Control', Back: 'Back', Supervisor: 'Supervisores', Front: 'Front' };
 
     const byAgent = {};
@@ -908,7 +923,7 @@
     if (!rawData) return;
     const todayDow = new Date().getDay();
     const isAllView = currentTeam === '__all__' && hasTeamData;
-    const TEAM_ORDER = ['TC', 'Back', 'Supervisor', 'Front'];
+    const TEAM_ORDER = ['Supervisor', 'Front', 'Back', 'TC'];
     const TEAM_LABELS = { TC: 'Torre de Control', Back: 'Back', Supervisor: 'Supervisores', Front: 'Front' };
 
     // Group all scheduled cells by agent, then by day
