@@ -3,121 +3,619 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tablero de Cobertura — Prueba</title>
+<title>Torre de Control · Horarios</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --asfalto: #1f2937;
-    --asfalto-claro: #374151;
-    --verde: #16a34a;
-    --ambar: #d97706;
-    --rojo: #dc2626;
-    --texto: #f3f4f6;
+  :root{
+    --bg: #080c12;
+    --panel: #0e1420;
+    --panel-2: #151c2b;
+    --navy: #001d3d;
+    --orange: #f15b2b;
+    --orange-dim: #b8431e;
+    --turquoise: #279bb0;
+    --turquoise-dim: #1a6b7a;
+    --yellow: #ffb000;
+    --green: #9fd1a4;
+    --border: rgba(241, 91, 43, 0.16);
+    --border-soft: rgba(255, 255, 255, 0.06);
+    --grid-line: rgba(255, 255, 255, 0.05);
+    --text: #ffffff;
+    --text-mid: rgba(255, 255, 255, 0.7);
+    --text-dim: rgba(255, 255, 255, 0.42);
+    --orange-glow: rgba(241, 91, 43, 0.5);
+    --turquoise-glow: rgba(39, 155, 176, 0.35);
   }
-  body {
+
+  * { box-sizing: border-box; }
+
+  html, body {
     margin: 0;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-    background: var(--asfalto);
-    color: var(--texto);
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Prompt', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      0deg, rgba(255,255,255,0.01) 0px, rgba(255,255,255,0.01) 1px,
+      transparent 1px, transparent 3px
+    );
+    z-index: 1;
+  }
+
+  .page {
+    max-width: 1240px;
+    margin: 0 auto;
+    padding: 40px 32px 64px;
+    position: relative;
+    z-index: 2;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .page-label {
+    font-size: 10px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+  }
+  .page-label::before {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 2px;
+    background: var(--orange);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: 34px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.5px;
+    line-height: 1.05;
+  }
+
+  .header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+  }
+
+  .updated {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+  }
+
+  .controls-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  input[type="date"] {
+    background: var(--panel-2);
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    padding: 8px 12px;
+    border-radius: 7px;
+    outline: none;
+    color-scheme: dark;
+  }
+  input[type="date"]:focus {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px rgba(241,91,43,0.15);
+  }
+
+  button#refresh {
+    background: var(--panel-2);
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    padding: 8px 14px;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: border-color .15s ease, color .15s ease;
+  }
+  button#refresh:hover { border-color: var(--orange); color: var(--orange); }
+  button#refresh:focus-visible { outline: 2px solid var(--orange); outline-offset: 2px; }
+
+  /* View tabs */
+  .view-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 22px;
+  }
+  .view-tab {
+    padding: 9px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--panel);
+    border: 1px solid var(--border-soft);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .view-tab:hover { color: var(--text); }
+  .view-tab.active {
+    color: var(--orange);
+    border-color: var(--border);
+    background: rgba(241,91,43,0.07);
+  }
+
+  .view { display: none; }
+  .view.active { display: block; animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to {opacity:1; transform:none;} }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
     padding: 24px;
   }
-  h1 { font-size: 20px; margin-bottom: 4px; }
-  .sub { color: #9ca3af; font-size: 13px; margin-bottom: 20px; }
-  .status {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 6px;
-    background: var(--asfalto-claro);
-    font-size: 13px;
-    margin-bottom: 20px;
+
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
-  .status.ok { border-left: 4px solid var(--verde); }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 13px;
+  .card-title .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--orange);
+    box-shadow: 0 0 8px var(--orange-glow);
+    animation: pulse 2s ease-in-out infinite;
+    flex-shrink: 0;
   }
-  th, td {
-    border: 1px solid #4b5563;
-    padding: 6px 8px;
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
+
+  .card-desc {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-bottom: 18px;
+    text-transform: capitalize;
+  }
+
+  .state-msg {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-dim);
+    padding: 40px 0;
+  }
+  .state-msg.error { color: var(--orange); line-height: 1.7; }
+
+  /* ---- Day (gantt) view ---- */
+  .gantt-scroll { overflow-x: auto; }
+  .gantt-wrap { min-width: 900px; position: relative; }
+
+  .gantt-header {
+    display: grid;
+    grid-template-columns: 210px repeat(24, 1fr);
+    position: sticky;
+    top: 0;
+    background: var(--panel);
+    z-index: 3;
+    padding-bottom: 8px;
+  }
+  .gantt-header .corner {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--text-dim);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    align-self: end;
+  }
+  .gantt-header .hour-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
     text-align: center;
   }
-  th { background: var(--asfalto-claro); }
-  td.agente { text-align: left; font-weight: 600; background: var(--asfalto-claro); }
-  .cubierto { background: var(--verde); }
-  .ajustado { background: var(--ambar); }
-  .deficit { background: var(--rojo); }
-  button {
-    background: var(--asfalto-claro);
-    color: var(--texto);
-    border: 1px solid #6b7280;
-    padding: 8px 16px;
-    border-radius: 6px;
-    cursor: pointer;
-    margin-bottom: 20px;
+
+  .gantt-body { position: relative; }
+
+  .agent-row {
+    display: grid;
+    grid-template-columns: 210px repeat(24, 1fr);
+    align-items: center;
+    height: 32px;
+    border-bottom: 1px solid var(--grid-line);
   }
-  button:hover { background: #4b5563; }
+  .agent-row:hover { background: rgba(255,255,255,0.015); }
+
+  .agent-name {
+    font-size: 12.5px;
+    color: var(--text-mid);
+    padding-right: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    position: sticky;
+    left: 0;
+    background: inherit;
+  }
+
+  .track {
+    grid-column: 2 / span 24;
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    height: 100%;
+    position: relative;
+  }
+  .track .cell { border-left: 1px solid var(--grid-line); height: 100%; }
+  .track .cell.weekend { background: rgba(241,91,43,0.04); }
+
+  .bar {
+    height: 18px;
+    align-self: center;
+    background: linear-gradient(180deg, var(--turquoise) 0%, var(--turquoise-dim) 100%);
+    border-radius: 4px;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.35), 0 2px 6px var(--turquoise-glow);
+    margin: 0 1px;
+  }
+
+  .now-line {
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--orange);
+    box-shadow: 0 0 10px var(--orange-glow), 0 0 22px var(--orange-glow);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .now-line::before {
+    content: attr(data-time);
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--orange);
+    white-space: nowrap;
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 3px;
+  }
+
+  .empty-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    padding: 20px 0;
+  }
+
+  /* ---- Week view ---- */
+  .week-scroll { overflow-x: auto; }
+  table.week-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 920px;
+  }
+  table.week-table th, table.week-table td {
+    padding: 10px 12px;
+    text-align: center;
+    font-size: 11.5px;
+    border-bottom: 1px solid var(--grid-line);
+    white-space: nowrap;
+  }
+  table.week-table thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    font-weight: 600;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  table.week-table thead th.today-col { color: var(--orange); }
+  table.week-table td.agent-cell {
+    text-align: left;
+    color: var(--text-mid);
+    font-weight: 500;
+  }
+  table.week-table td.shift-cell {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--turquoise);
+  }
+  table.week-table td.shift-cell.off {
+    color: var(--text-dim);
+  }
+  table.week-table td.hours-cell {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--yellow);
+    font-weight: 600;
+  }
+  table.week-table tbody tr:hover { background: rgba(255,255,255,0.015); }
+
+  ::-webkit-scrollbar { height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 4px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card-title .dot { animation: none; }
+  }
+
+  @media (max-width: 640px) {
+    h1 { font-size: 26px; }
+    .page { padding: 28px 16px 48px; }
+  }
 </style>
 </head>
 <body>
-  <h1>Tablero de Cobertura — Asistencia en Carretera 24/7</h1>
-  <div class="sub">Prueba de despliegue en GitHub Pages — datos de ejemplo (sin conexión al webhook aún)</div>
 
-  <div id="status" class="status ok">✅ Página cargando correctamente — GitHub Pages funcionando</div>
-  <br>
-  <button onclick="actualizar()">🔄 Actualizar ahora</button>
+<div class="page">
 
-  <table id="tabla"></table>
+  <header>
+    <div>
+      <div class="page-label">torre de control</div>
+      <h1>Horarios</h1>
+    </div>
+    <div class="header-right">
+      <span class="updated" id="updated-label"></span>
+      <div class="controls-row">
+        <input type="date" id="date-picker" aria-label="Seleccionar fecha">
+        <button id="refresh" aria-label="Actualizar datos">↻ actualizar</button>
+      </div>
+    </div>
+  </header>
 
-  <script>
-    // --- Datos de ejemplo, mismo esquema que devolverá el webhook de n8n ---
-    const DATOS_PRUEBA = {
-      updatedAt: new Date().toISOString(),
-      agents: ["Juan Pérez", "María Gómez", "Carlos Ruiz"],
-      cells: [
-        { day: 1, hour: 8, agent: "Juan Pérez", scheduled: true },
-        { day: 1, hour: 9, agent: "Juan Pérez", scheduled: true },
-        { day: 1, hour: 8, agent: "María Gómez", scheduled: true },
-        { day: 1, hour: 9, agent: "María Gómez", scheduled: false },
-        { day: 1, hour: 8, agent: "Carlos Ruiz", scheduled: false },
-      ],
-      expectedLoad: [
-        { day: 1, hour: 8, load: 2 },
-        { day: 1, hour: 9, load: 3 },
-      ]
-    };
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="day">Vista diaria</button>
+    <button class="view-tab" data-view="week">Vista semanal</button>
+  </div>
 
-    function estadoCelda(agente, day, hour, cells, expectedLoad) {
-      const cell = cells.find(c => c.agent === agente && c.day === day && c.hour === hour);
-      const carga = expectedLoad.find(e => e.day === day && e.hour === hour);
-      if (!cell || !cell.scheduled) return "deficit";
-      if (carga && carga.load > 2) return "ajustado";
-      return "cubierto";
+  <!-- DAY VIEW -->
+  <div class="view active" id="view-day">
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>parrilla horaria</div>
+      <div class="card-desc" id="day-label"></div>
+      <div class="gantt-scroll">
+        <div id="day-content"><div class="state-msg">Cargando datos…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WEEK VIEW -->
+  <div class="view" id="view-week">
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>programación semanal</div>
+      <div class="card-desc">Rango de turno por agente, lunes a domingo</div>
+      <div class="week-scroll">
+        <div id="week-content"><div class="state-msg">Cargando datos…</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const WEBHOOK_URL = "https://iagb.app.n8n.cloud/webhook/b81f597c-d181-4545-9a2a-a08cb3188e61";
+  const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+  const WEEK_ORDER = [1,2,3,4,5,6,0]; // lunes..domingo
+  const WEEK_SHORT = { 1:"Lun", 2:"Mar", 3:"Mié", 4:"Jue", 5:"Vie", 6:"Sáb", 0:"Dom" };
+
+  let rawData = null;
+  let nowLineInterval = null;
+
+  const datePicker = document.getElementById('date-picker');
+  const dayContent = document.getElementById('day-content');
+  const weekContent = document.getElementById('week-content');
+  const dayLabel = document.getElementById('day-label');
+  const updatedLabel = document.getElementById('updated-label');
+  const refreshBtn = document.getElementById('refresh');
+
+  function todayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+  datePicker.value = todayStr();
+
+  // ---- View switching ----
+  document.querySelectorAll('.view-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('view-' + tab.dataset.view).classList.add('active');
+    });
+  });
+
+  async function loadData() {
+    dayContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
+    weekContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
+    try {
+      const res = await fetch(WEBHOOK_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      rawData = await res.json();
+      updatedLabel.textContent = rawData.updatedAt
+        ? `actualizado: ${new Date(rawData.updatedAt).toLocaleString('es-CO')}`
+        : '';
+      renderDay();
+      renderWeek();
+    } catch (err) {
+      const isCors = err instanceof TypeError;
+      const msg = `
+        <div class="state-msg error">
+          No se pudo cargar el horario.<br>
+          ${isCors
+            ? 'Esto suele pasar por CORS: el webhook de n8n no está devolviendo el header Access-Control-Allow-Origin. Revisa la configuración del nodo Webhook.'
+            : 'Error: ' + err.message}
+        </div>`;
+      dayContent.innerHTML = msg;
+      weekContent.innerHTML = msg;
+    }
+  }
+
+  function buildRanges(hours) {
+    const sorted = [...hours].sort((a,b) => a-b);
+    const ranges = [];
+    let start = sorted[0], prev = sorted[0];
+    for (let i=1; i<sorted.length; i++) {
+      if (sorted[i] === prev+1) { prev = sorted[i]; }
+      else { ranges.push([start, prev]); start = sorted[i]; prev = sorted[i]; }
+    }
+    ranges.push([start, prev]);
+    return ranges;
+  }
+
+  function renderDay() {
+    if (!rawData) return;
+    const dateVal = datePicker.value;
+    const selectedDate = new Date(dateVal + 'T00:00:00');
+    const dayOfWeek = selectedDate.getDay();
+    const isToday = dateVal === todayStr();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    dayLabel.textContent = `${DAY_NAMES[dayOfWeek]} · ${selectedDate.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})}`;
+
+    const cellsForDay = (rawData.cells || []).filter(c => c.day === dayOfWeek && c.scheduled);
+    const byAgent = {};
+    for (const c of cellsForDay) {
+      if (!byAgent[c.agent]) byAgent[c.agent] = [];
+      byAgent[c.agent].push(c.hour);
+    }
+    const agentNames = Object.keys(byAgent).sort((a,b) => {
+      const minA = Math.min(...byAgent[a]), minB = Math.min(...byAgent[b]);
+      return minA !== minB ? minA-minB : a.localeCompare(b);
+    });
+
+    if (nowLineInterval) clearInterval(nowLineInterval);
+
+    if (agentNames.length === 0) {
+      dayContent.innerHTML = '<div class="empty-note">Sin agentes programados este día.</div>';
+      return;
     }
 
-    function pintar(data) {
-      const horas = [...Array(24).keys()];
-      const tabla = document.getElementById("tabla");
-      let html = "<tr><th>Agente</th>" + horas.map(h => `<th>${h}h</th>`).join("") + "</tr>";
-      data.agents.forEach(agente => {
-        html += `<tr><td class="agente">${agente}</td>`;
-        horas.forEach(h => {
-          const estado = estadoCelda(agente, 1, h, data.cells, data.expectedLoad);
-          html += `<td class="${estado}"></td>`;
-        });
-        html += "</tr>";
-      });
-      tabla.innerHTML = html;
-      document.getElementById("status").innerText =
-        `✅ Última actualización: ${new Date(data.updatedAt).toLocaleTimeString()}`;
+    let html = `
+      <div class="gantt-wrap">
+        <div class="gantt-header">
+          <div class="corner">agente</div>
+          ${Array.from({length:24},(_,h)=>`<div class="hour-label">${String(h).padStart(2,'0')}</div>`).join('')}
+        </div>
+        <div class="gantt-body" id="gantt-body">`;
+    for (const agent of agentNames) {
+      const ranges = buildRanges(byAgent[agent]);
+      html += `<div class="agent-row">
+        <div class="agent-name" title="${agent}">${agent}</div>
+        <div class="track">
+          ${Array.from({length:24},(_,h)=>`<div class="cell${isWeekend?' weekend':''}"></div>`).join('')}
+          ${ranges.map(([s,e]) => `<div class="bar" style="grid-column: ${s+1} / ${e+2};"></div>`).join('')}
+        </div>
+      </div>`;
+    }
+    html += `</div></div>`;
+    dayContent.innerHTML = html;
+
+    if (isToday) {
+      const ganttBody = document.getElementById('gantt-body');
+      const line = document.createElement('div');
+      line.className = 'now-line';
+      ganttBody.style.position = 'relative';
+      ganttBody.appendChild(line);
+      const updateNowLine = () => {
+        const now = new Date();
+        const frac = (now.getHours() + now.getMinutes()/60) / 24;
+        line.style.left = `calc(210px + ${frac} * (100% - 210px))`;
+        line.setAttribute('data-time', now.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'}));
+      };
+      updateNowLine();
+      nowLineInterval = setInterval(updateNowLine, 30000);
+    }
+  }
+
+  function renderWeek() {
+    if (!rawData) return;
+    const todayDow = new Date().getDay();
+
+    // Group all scheduled cells by agent, then by day
+    const byAgent = {};
+    for (const c of (rawData.cells || [])) {
+      if (!c.scheduled) continue;
+      if (!byAgent[c.agent]) byAgent[c.agent] = {};
+      if (!byAgent[c.agent][c.day]) byAgent[c.agent][c.day] = [];
+      byAgent[c.agent][c.day].push(c.hour);
     }
 
-    function actualizar() {
-      // Por ahora solo repinta los datos de ejemplo con timestamp nuevo
-      DATOS_PRUEBA.updatedAt = new Date().toISOString();
-      pintar(DATOS_PRUEBA);
+    const agentNames = Object.keys(byAgent).sort((a,b) => a.localeCompare(b));
+
+    if (agentNames.length === 0) {
+      weekContent.innerHTML = '<div class="empty-note">Sin datos de agentes.</div>';
+      return;
     }
 
-    pintar(DATOS_PRUEBA);
-  </script>
+    let html = `<table class="week-table"><thead><tr>
+      <th style="text-align:left;">Agente</th>
+      ${WEEK_ORDER.map(d => `<th class="${d===todayDow ? 'today-col' : ''}">${WEEK_SHORT[d]}</th>`).join('')}
+      <th>Horas</th>
+    </tr></thead><tbody>`;
+
+    for (const agent of agentNames) {
+      let totalHours = 0;
+      let rowCells = '';
+      for (const d of WEEK_ORDER) {
+        const hours = byAgent[agent][d];
+        if (!hours || hours.length === 0) {
+          rowCells += `<td class="shift-cell off">D</td>`;
+        } else {
+          const min = Math.min(...hours);
+          const max = Math.max(...hours);
+          totalHours += hours.length;
+          rowCells += `<td class="shift-cell">${String(min).padStart(2,'0')}:00–${String(max+1).padStart(2,'0')}:00</td>`;
+        }
+      }
+      html += `<tr><td class="agent-cell">${agent}</td>${rowCells}<td class="hours-cell">${totalHours}h</td></tr>`;
+    }
+    html += `</tbody></table>`;
+    weekContent.innerHTML = html;
+  }
+
+  datePicker.addEventListener('change', renderDay);
+  refreshBtn.addEventListener('click', loadData);
+
+  loadData();
+</script>
+
 </body>
 </html>
