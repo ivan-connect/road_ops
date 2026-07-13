@@ -478,6 +478,107 @@
   }
   table.forecast-table tbody tr:hover { background: rgba(255,255,255,0.015); }
 
+  /* Heatmap */
+  .heatmap-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .heatmap-controls label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  select#tipo-servicio-select {
+    background: var(--panel-2);
+    border: 1px solid var(--border-soft);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    outline: none;
+    color-scheme: dark;
+  }
+  select#tipo-servicio-select:focus {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px rgba(241,91,43,0.15);
+  }
+
+  .heatmap-scroll { overflow-x: auto; }
+  .heatmap-grid { min-width: 900px; }
+  .heatmap-header {
+    display: grid;
+    grid-template-columns: 90px repeat(24, 1fr);
+    margin-bottom: 4px;
+  }
+  .heatmap-header .hour-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .heatmap-row {
+    display: grid;
+    grid-template-columns: 90px repeat(24, 1fr);
+    align-items: center;
+  }
+  .heatmap-row .day-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-mid);
+    text-transform: capitalize;
+  }
+  .heatmap-cell {
+    height: 26px;
+    margin: 1px;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5px;
+    color: rgba(255,255,255,0.55);
+  }
+
+  /* Accounts list */
+  .account-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 50px;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--grid-line);
+  }
+  .account-row .account-name {
+    font-size: 12px;
+    color: var(--text-mid);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .account-row .account-bar-track {
+    height: 10px;
+    background: var(--grid-line);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .account-row .account-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--turquoise-dim), var(--turquoise));
+    border-radius: 5px;
+  }
+  .account-row .account-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--yellow);
+    font-weight: 600;
+    text-align: right;
+  }
+
   ::-webkit-scrollbar { height: 8px; }
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 4px; }
@@ -558,6 +659,22 @@
         <div id="forecast-content"><div class="state-msg">Cargando datos…</div></div>
       </div>
     </div>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>mapa de calor por hora</div>
+      <div class="card-desc">Servicios esperados por día y hora</div>
+      <div class="heatmap-controls">
+        <label for="tipo-servicio-select">Tipo de servicio</label>
+        <select id="tipo-servicio-select"><option value="__all__">Todos</option></select>
+      </div>
+      <div class="heatmap-scroll">
+        <div id="heatmap-content"><div class="state-msg">Cargando datos…</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>servicios por cuenta</div>
+      <div class="card-desc">Cantidad total de servicios por cuenta</div>
+      <div id="accounts-content"><div class="state-msg">Cargando datos…</div></div>
+    </div>
   </div>
 
 </div>
@@ -578,6 +695,9 @@
   const weekContent = document.getElementById('week-content');
   const coverageContent = document.getElementById('coverage-content');
   const forecastContent = document.getElementById('forecast-content');
+  const heatmapContent = document.getElementById('heatmap-content');
+  const accountsContent = document.getElementById('accounts-content');
+  const tipoServicioSelect = document.getElementById('tipo-servicio-select');
   const dayLabel = document.getElementById('day-label');
   const updatedLabel = document.getElementById('updated-label');
   const refreshBtn = document.getElementById('refresh');
@@ -609,6 +729,7 @@
       renderWeek();
       renderCoverage();
       renderForecast();
+      renderHeatmap();
     });
   });
 
@@ -624,10 +745,13 @@
         : '';
       hasTeamData = (rawData.cells || []).some(c => c.team);
       teamTabsEl.style.display = hasTeamData ? 'flex' : 'none';
+      populateTipoServicioOptions();
       renderDay();
       renderWeek();
       renderCoverage();
       renderForecast();
+      renderHeatmap();
+      renderAccounts();
     } catch (err) {
       const isCors = err instanceof TypeError;
       const msg = `
@@ -869,6 +993,74 @@
         </tr></tfoot>
       </table>`;
   }
+
+  function populateTipoServicioOptions() {
+    const tipos = rawData.tiposServicio || [];
+    tipoServicioSelect.innerHTML = '<option value="__all__">Todos</option>' +
+      tipos.map(t => `<option value="${t}">${t}</option>`).join('');
+  }
+
+  function renderHeatmap() {
+    if (!rawData) return;
+    const heatmapArr = (rawData.heatmapByTipo && rawData.heatmapByTipo[currentTeam]) || null;
+    if (!heatmapArr) {
+      heatmapContent.innerHTML = '<div class="empty-note">Datos de mapa de calor no disponibles aún.</div>';
+      return;
+    }
+    const tipoSel = tipoServicioSelect.value || '__all__';
+
+    // Sumar por day/hour, filtrando por tipo si aplica
+    const grid = {};
+    let maxVal = 0;
+    for (const item of heatmapArr) {
+      if (tipoSel !== '__all__' && item.tipo !== tipoSel) continue;
+      if (!grid[item.day]) grid[item.day] = {};
+      grid[item.day][item.hour] = (grid[item.day][item.hour] || 0) + item.load;
+      if (grid[item.day][item.hour] > maxVal) maxVal = grid[item.day][item.hour];
+    }
+
+    let html = `<div class="heatmap-grid">
+      <div class="heatmap-header">
+        <div></div>
+        ${Array.from({length:24},(_,h)=>`<div class="hour-label">${String(h).padStart(2,'0')}</div>`).join('')}
+      </div>`;
+    for (const d of WEEK_ORDER) {
+      html += `<div class="heatmap-row"><div class="day-label">${DAY_NAMES[d]}</div>`;
+      for (let h = 0; h < 24; h++) {
+        const val = (grid[d] && grid[d][h]) || 0;
+        const intensity = maxVal > 0 ? val / maxVal : 0;
+        const bg = intensity === 0
+          ? 'rgba(255,255,255,0.03)'
+          : `rgba(39,155,176,${0.12 + intensity * 0.75})`;
+        html += `<div class="heatmap-cell" style="background:${bg};" title="${DAY_NAMES[d]} ${String(h).padStart(2,'0')}:00 — ${Math.round(val*10)/10}">${val > 0 ? Math.round(val) : ''}</div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+    heatmapContent.innerHTML = html;
+  }
+
+  function renderAccounts() {
+    if (!rawData) return;
+    const porCuenta = rawData.porCuenta || [];
+    if (porCuenta.length === 0) {
+      accountsContent.innerHTML = '<div class="empty-note">Datos de cuentas no disponibles aún.</div>';
+      return;
+    }
+    const maxCount = Math.max(...porCuenta.map(c => c.count));
+    let html = '';
+    for (const c of porCuenta) {
+      const pct = maxCount > 0 ? (c.count / maxCount) * 100 : 0;
+      html += `<div class="account-row">
+        <div class="account-name" title="${c.cuenta}">${c.cuenta}</div>
+        <div class="account-bar-track"><div class="account-bar-fill" style="width:${pct}%;"></div></div>
+        <div class="account-count">${c.count}</div>
+      </div>`;
+    }
+    accountsContent.innerHTML = html;
+  }
+
+  tipoServicioSelect.addEventListener('change', renderHeatmap);
 
   datePicker.addEventListener('change', () => { renderDay(); renderCoverage(); });
   refreshBtn.addEventListener('click', loadData);
