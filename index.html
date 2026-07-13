@@ -176,6 +176,69 @@
     background: rgba(241,91,43,0.07);
   }
 
+  /* Team tabs */
+  .team-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 22px;
+  }
+  .team-tab {
+    padding: 7px 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border-soft);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all .15s ease;
+  }
+  .team-tab:hover { color: var(--text); }
+  .team-tab.active {
+    color: var(--turquoise);
+    border-color: rgba(39,155,176,0.35);
+    background: rgba(39,155,176,0.08);
+  }
+
+  .card + .card { margin-top: 20px; }
+
+  /* Coverage table */
+  .coverage-scroll { overflow-x: auto; }
+  table.coverage-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 900px;
+  }
+  table.coverage-table th, table.coverage-table td {
+    padding: 8px 6px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    border-bottom: 1px solid var(--grid-line);
+    white-space: nowrap;
+  }
+  table.coverage-table th.row-label, table.coverage-table td.row-label {
+    text-align: left;
+    color: var(--text-mid);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    letter-spacing: 1px;
+  }
+  table.coverage-table thead th {
+    color: var(--text-dim);
+    font-weight: 600;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-soft);
+  }
+  td.diff-positive { color: var(--text-dim); }
+  td.diff-negative { color: var(--orange); font-weight: 700; }
+  td.status-ok::after { content: '✓'; color: var(--turquoise); }
+  td.status-bad::after { content: '!'; color: var(--orange); font-weight: 700; }
+
   .view { display: none; }
   .view.active { display: block; animation: fadeIn .25s ease; }
   @keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to {opacity:1; transform:none;} }
@@ -406,6 +469,11 @@
     <button class="view-tab" data-view="week">Vista semanal</button>
   </div>
 
+  <div class="team-tabs" id="team-tabs">
+    <button class="team-tab active" data-team="TC">Torre de Control</button>
+    <button class="team-tab" data-team="Back">Back</button>
+  </div>
+
   <!-- DAY VIEW -->
   <div class="view active" id="view-day">
     <div class="card">
@@ -413,6 +481,13 @@
       <div class="card-desc" id="day-label"></div>
       <div class="gantt-scroll">
         <div id="day-content"><div class="state-msg">Cargando datos…</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="dot"></span>cobertura por hora</div>
+      <div class="card-desc">Requeridos vs. programados, equipo seleccionado</div>
+      <div class="coverage-scroll">
+        <div id="coverage-content"><div class="state-msg">Cargando datos…</div></div>
       </div>
     </div>
   </div>
@@ -438,13 +513,17 @@
 
   let rawData = null;
   let nowLineInterval = null;
+  let currentTeam = 'TC';
+  let hasTeamData = false;
 
   const datePicker = document.getElementById('date-picker');
   const dayContent = document.getElementById('day-content');
   const weekContent = document.getElementById('week-content');
+  const coverageContent = document.getElementById('coverage-content');
   const dayLabel = document.getElementById('day-label');
   const updatedLabel = document.getElementById('updated-label');
   const refreshBtn = document.getElementById('refresh');
+  const teamTabsEl = document.getElementById('team-tabs');
 
   function todayStr() {
     const d = new Date();
@@ -462,6 +541,18 @@
     });
   });
 
+  // ---- Team switching ----
+  teamTabsEl.querySelectorAll('.team-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      teamTabsEl.querySelectorAll('.team-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentTeam = tab.dataset.team;
+      renderDay();
+      renderWeek();
+      renderCoverage();
+    });
+  });
+
   async function loadData() {
     dayContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     weekContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
@@ -472,8 +563,11 @@
       updatedLabel.textContent = rawData.updatedAt
         ? `actualizado: ${new Date(rawData.updatedAt).toLocaleString('es-CO')}`
         : '';
+      hasTeamData = (rawData.cells || []).some(c => c.team);
+      teamTabsEl.style.display = hasTeamData ? 'flex' : 'none';
       renderDay();
       renderWeek();
+      renderCoverage();
     } catch (err) {
       const isCors = err instanceof TypeError;
       const msg = `
@@ -510,7 +604,9 @@
 
     dayLabel.textContent = `${DAY_NAMES[dayOfWeek]} · ${selectedDate.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})}`;
 
-    const cellsForDay = (rawData.cells || []).filter(c => c.day === dayOfWeek && c.scheduled);
+    const cellsForDay = (rawData.cells || []).filter(c =>
+      c.day === dayOfWeek && c.scheduled && (!hasTeamData || c.team === currentTeam)
+    );
     const byAgent = {};
     for (const c of cellsForDay) {
       if (!byAgent[c.agent]) byAgent[c.agent] = [];
@@ -586,6 +682,7 @@
     const byAgent = {};
     for (const c of (rawData.cells || [])) {
       if (!c.scheduled) continue;
+      if (hasTeamData && c.team !== currentTeam) continue;
       if (!byAgent[c.agent]) byAgent[c.agent] = {};
       if (!byAgent[c.agent][c.day]) byAgent[c.agent][c.day] = [];
       byAgent[c.agent][c.day].push(c.hour);
@@ -624,7 +721,57 @@
     weekContent.innerHTML = html;
   }
 
-  datePicker.addEventListener('change', renderDay);
+  function renderCoverage() {
+    if (!rawData) return;
+    if (!hasTeamData || !rawData.expectedLoad) {
+      coverageContent.innerHTML = '<div class="empty-note">Datos de cobertura no disponibles aún.</div>';
+      return;
+    }
+    const dateVal = datePicker.value;
+    const dayOfWeek = new Date(dateVal + 'T00:00:00').getDay();
+
+    const loadArr = rawData.expectedLoad[currentTeam] || [];
+    const requiredByHour = {};
+    for (const item of loadArr) {
+      if (item.day === dayOfWeek) requiredByHour[item.hour] = item.requiredAgents;
+    }
+
+    const cellsForDay = (rawData.cells || []).filter(c =>
+      c.day === dayOfWeek && c.scheduled && c.team === currentTeam
+    );
+    const programadosByHour = {};
+    for (let h = 0; h < 24; h++) {
+      const agentsAtHour = new Set(cellsForDay.filter(c => c.hour === h).map(c => c.agent));
+      programadosByHour[h] = agentsAtHour.size;
+    }
+
+    let requeridosRow = '', programadosRow = '', diffRow = '', statusRow = '';
+    for (let h = 0; h < 24; h++) {
+      const req = requiredByHour[h] ?? 0;
+      const prog = programadosByHour[h] ?? 0;
+      const diff = prog - req;
+      requeridosRow += `<td>${req}</td>`;
+      programadosRow += `<td>${prog}</td>`;
+      diffRow += `<td class="${diff < 0 ? 'diff-negative' : 'diff-positive'}">${diff > 0 ? '+' : ''}${diff}</td>`;
+      statusRow += `<td class="${diff < 0 ? 'status-bad' : 'status-ok'}"></td>`;
+    }
+
+    coverageContent.innerHTML = `
+      <table class="coverage-table">
+        <thead><tr>
+          <th class="row-label">Hora</th>
+          ${Array.from({length:24},(_,h)=>`<th>${String(h).padStart(2,'0')}:00</th>`).join('')}
+        </tr></thead>
+        <tbody>
+          <tr><td class="row-label">Requeridos</td>${requeridosRow}</tr>
+          <tr><td class="row-label">Programados</td>${programadosRow}</tr>
+          <tr><td class="row-label">Diferencia</td>${diffRow}</tr>
+          <tr><td class="row-label">Estado</td>${statusRow}</tr>
+        </tbody>
+      </table>`;
+  }
+
+  datePicker.addEventListener('change', () => { renderDay(); renderCoverage(); });
   refreshBtn.addEventListener('click', loadData);
 
   loadData();
