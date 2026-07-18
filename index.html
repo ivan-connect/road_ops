@@ -373,11 +373,13 @@
     grid-template-columns: repeat(24, 1fr);
     height: 100%;
     position: relative;
+    overflow: hidden;
   }
   .track .cell { border-left: 1px solid var(--grid-line); height: 100%; }
   .track .cell.weekend { background: rgba(241,91,43,0.04); }
 
   .bar {
+    grid-row: 1;
     height: 18px;
     align-self: center;
     background: linear-gradient(180deg, var(--turquoise) 0%, var(--turquoise-dim) 100%);
