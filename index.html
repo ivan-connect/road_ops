@@ -826,7 +826,9 @@
     dayLabel.textContent = `${DAY_NAMES[dayOfWeek]} · ${selectedDate.toLocaleDateString('es-CO',{day:'numeric',month:'long',year:'numeric'})}`;
 
     const cellsForDay = (rawData.cells || []).filter(c => {
-      if (c.day !== dayOfWeek || !c.scheduled) return false;
+      if (!c.scheduled) return false;
+      const matchesDate = c.date ? c.date === dateVal : c.day === dayOfWeek;
+      if (!matchesDate) return false;
       if (!hasTeamData) return true;
       if (currentTeam === '__all__') return c.team === 'TC' || c.team === 'Back' || c.team === 'Supervisor' || c.team === 'Front';
       return c.team === currentTeam;
@@ -921,26 +923,49 @@
     }
   }
 
+  function getMondayOfWeek(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = d.getDay();
+    const diffToMonday = dow === 0 ? -6 : 1 - dow;
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diffToMonday);
+    return monday;
+  }
+
   function renderWeek() {
     if (!rawData) return;
-    const todayDow = new Date().getDay();
     const isAllView = currentTeam === '__all__' && hasTeamData;
     const TEAM_ORDER = ['Supervisor', 'Front', 'Back', 'TC'];
     const TEAM_LABELS = { TC: 'Torre de Control', Back: 'Back', Supervisor: 'Supervisores', Front: 'Front' };
 
-    // Group all scheduled cells by agent, then by day
+    const hasDateField = (rawData.cells || []).some(c => c.date);
+    const dateVal = datePicker.value;
+    const todayISO = todayStr();
+
+    // Construir las 7 fechas reales (lunes a domingo) de la semana que contiene la fecha seleccionada
+    const monday = getMondayOfWeek(dateVal);
+    const weekDates = Array.from({length:7}, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+      return { iso: `${y}-${m}-${day}`, dow: d.getDay(), label: d.toLocaleDateString('es-CO', {day:'numeric', month:'short'}) };
+    });
+
+    // Group all scheduled cells by agent, then por fecha real (o por día de semana si no hay fecha, modo antiguo)
     const byAgent = {};
     const agentTeam = {};
     for (const c of (rawData.cells || [])) {
       if (!c.scheduled) continue;
+      if (hasDateField && !weekDates.some(w => w.iso === c.date)) continue;
       if (hasTeamData) {
         if (isAllView) {
           if (!(c.team === 'TC' || c.team === 'Back' || c.team === 'Supervisor' || c.team === 'Front')) continue;
         } else if (c.team !== currentTeam) continue;
       }
+      const key = hasDateField ? c.date : c.day;
       if (!byAgent[c.agent]) byAgent[c.agent] = {};
-      if (!byAgent[c.agent][c.day]) byAgent[c.agent][c.day] = [];
-      byAgent[c.agent][c.day].push(c.hour);
+      if (!byAgent[c.agent][key]) byAgent[c.agent][key] = [];
+      byAgent[c.agent][key].push(c.hour);
       agentTeam[c.agent] = c.team;
     }
 
@@ -955,13 +980,13 @@
     }
 
     if (agentNames.length === 0) {
-      weekContent.innerHTML = '<div class="empty-note">Sin datos de agentes.</div>';
+      weekContent.innerHTML = '<div class="empty-note">Sin datos de agentes para esta semana.</div>';
       return;
     }
 
     let html = `<table class="week-table"><thead><tr>
       <th style="text-align:left;">Agente</th>
-      ${WEEK_ORDER.map(d => `<th class="${d===todayDow ? 'today-col' : ''}">${WEEK_SHORT[d]}</th>`).join('')}
+      ${weekDates.map(w => `<th class="${w.iso===todayISO ? 'today-col' : ''}">${WEEK_SHORT[w.dow]} ${w.label}</th>`).join('')}
       <th>Horas</th>
     </tr></thead><tbody>`;
 
@@ -973,8 +998,9 @@
       }
       let totalHours = 0;
       let rowCells = '';
-      for (const d of WEEK_ORDER) {
-        const hours = byAgent[agent][d];
+      for (const w of weekDates) {
+        const key = hasDateField ? w.iso : w.dow;
+        const hours = byAgent[agent][key];
         if (!hours || hours.length === 0) {
           rowCells += `<td class="shift-cell off">D</td>`;
         } else {
@@ -1017,9 +1043,10 @@
       if (item.day === dayOfWeek) requiredByHour[item.hour] = item.requiredAgents;
     }
 
-    const cellsForDay = (rawData.cells || []).filter(c =>
-      c.day === dayOfWeek && c.scheduled && c.team === currentTeam
-    );
+    const cellsForDay = (rawData.cells || []).filter(c => {
+      if (!c.scheduled || c.team !== currentTeam) return false;
+      return c.date ? c.date === dateVal : c.day === dayOfWeek;
+    });
     const programadosByHour = {};
     for (let h = 0; h < 24; h++) {
       const agentsAtHour = new Set(cellsForDay.filter(c => c.hour === h).map(c => c.agent));
@@ -1183,7 +1210,7 @@
 
   tipoServicioSelect.addEventListener('change', renderHeatmap);
 
-  datePicker.addEventListener('change', () => { renderDay(); renderCoverage(); });
+  datePicker.addEventListener('change', () => { renderDay(); renderWeek(); renderCoverage(); });
   refreshBtn.addEventListener('click', loadData);
 
   loadData();
