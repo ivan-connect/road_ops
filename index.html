@@ -388,6 +388,24 @@
     margin: 0 1px;
   }
 
+  .bar-account {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .bar-account .bar-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 600;
+    color: rgba(0,0,0,0.75);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 4px;
+    pointer-events: none;
+  }
+
   .now-line {
     position: absolute;
     top: 0; bottom: 0;
@@ -718,6 +736,7 @@
 
 <script>
   const WEBHOOK_URL = "https://iagb.app.n8n.cloud/webhook/b81f597c-d181-4545-9a2a-a08cb3188e61";
+  const DATA_JSON_URL = "./data.json";
   const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
   const WEEK_ORDER = [1,2,3,4,5,6,0]; // lunes..domingo
   const WEEK_SHORT = { 1:"Lun", 2:"Mar", 3:"Mié", 4:"Jue", 5:"Vie", 6:"Sáb", 0:"Dom" };
@@ -774,7 +793,7 @@
     dayContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     weekContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     try {
-      const url = forceRefresh ? `${WEBHOOK_URL}?refresh=true` : WEBHOOK_URL;
+      const url = forceRefresh ? `${WEBHOOK_URL}?refresh=true` : `${DATA_JSON_URL}?t=${Date.now()}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       rawData = await res.json();
@@ -795,9 +814,11 @@
       const msg = `
         <div class="state-msg error">
           No se pudo cargar el horario.<br>
-          ${isCors
-            ? 'Esto suele pasar por CORS: el webhook de n8n no está devolviendo el header Access-Control-Allow-Origin. Revisa la configuración del nodo Webhook.'
-            : 'Error: ' + err.message}
+          ${forceRefresh
+            ? (isCors
+                ? 'Esto suele pasar por CORS: el webhook de n8n no está devolviendo el header Access-Control-Allow-Origin. Revisa la configuración del nodo Webhook.'
+                : 'Error: ' + err.message)
+            : 'No se encontró data.json en el repo, o falló su carga. Error: ' + err.message}
         </div>`;
       dayContent.innerHTML = msg;
       weekContent.innerHTML = msg;
@@ -814,6 +835,16 @@
     }
     ranges.push([start, prev]);
     return ranges;
+  }
+
+  function getCuentasTCByAgent(dateVal) {
+    const map = {};
+    for (const c of (rawData.cuentasTC || [])) {
+      if (c.date !== dateVal) continue;
+      if (!map[c.agent]) map[c.agent] = [];
+      map[c.agent].push(c);
+    }
+    return map;
   }
 
   function renderDay() {
@@ -889,18 +920,31 @@
           ${Array.from({length:24},(_,h)=>`<div class="hour-label">${String(h).padStart(2,'0')}</div>`).join('')}
         </div>
         <div class="gantt-body" id="gantt-body">`;
+    const cuentasTCByAgent = getCuentasTCByAgent(dateVal);
     let lastTeamShown = null;
     for (const agent of agentNames) {
       if (isAllView && agentTeam[agent] !== lastTeamShown) {
         lastTeamShown = agentTeam[agent];
         html += `<div class="team-section-row"><div class="team-section-label">${TEAM_LABELS[lastTeamShown] || lastTeamShown}</div></div>`;
       }
-      const ranges = buildRanges(byAgent[agent]);
+      const isTC = agentTeam[agent] === 'TC';
+      const tcCuentas = cuentasTCByAgent[agent];
+      let barsHtml;
+      if (isTC && tcCuentas && tcCuentas.length) {
+        barsHtml = tcCuentas.map(c => {
+          const label = (c.funciones && c.funciones.length ? c.funciones.join(' + ') : (c.label || ''));
+          const titleAttr = (c.funciones && c.funciones.length ? c.funciones.join(', ') : label);
+          return `<div class="bar bar-account" style="grid-column: ${c.startHour+1} / ${c.endHour+1};" title="${titleAttr}"><span class="bar-label">${label}</span></div>`;
+        }).join('');
+      } else {
+        const ranges = buildRanges(byAgent[agent]);
+        barsHtml = ranges.map(([s,e]) => `<div class="bar" style="grid-column: ${s+1} / ${e+2};"></div>`).join('');
+      }
       html += `<div class="agent-row">
         <div class="agent-name" title="${agent}">${agent}</div>
         <div class="track">
           ${Array.from({length:24},(_,h)=>`<div class="cell${isWeekend?' weekend':''}"></div>`).join('')}
-          ${ranges.map(([s,e]) => `<div class="bar" style="grid-column: ${s+1} / ${e+2};"></div>`).join('')}
+          ${barsHtml}
         </div>
       </div>`;
     }
