@@ -841,16 +841,32 @@
       .trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
+  function addDaysToDateStr(dateStr, delta) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setDate(dt.getDate() + delta);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  }
+
   function getCuentasTCByAgent(dateVal) {
+    const prevDate = addDaysToDateStr(dateVal, -1);
     const map = {};
     for (const c of (rawData.cuentasTC || [])) {
-      if (c.date !== dateVal) continue;
+      const isOvernight = c.endHour <= c.startHour;
+      let seg = null;
+      if (c.date === dateVal) {
+        seg = isOvernight ? { segStart: c.startHour, segEnd: 24 } : { segStart: c.startHour, segEnd: c.endHour };
+      } else if (c.date === prevDate && isOvernight) {
+        seg = { segStart: 0, segEnd: c.endHour };
+      }
+      if (!seg) continue;
       const key = normalizeName(c.agent);
       if (!map[key]) map[key] = [];
-      map[key].push(c);
+      map[key].push({ ...c, ...seg });
     }
     return map;
   }
+
 
   function renderDay() {
     if (!rawData) return;
@@ -939,12 +955,7 @@
         barsHtml = tcCuentas.map(c => {
           const label = (c.funciones && c.funciones.length ? c.funciones.join(' + ') : (c.label || ''));
           const titleAttr = (c.funciones && c.funciones.length ? c.funciones.join(', ') : label);
-          if (c.endHour <= c.startHour) {
-            // Turno que cruza la medianoche: partir en dos segmentos visuales
-            return `<div class="bar bar-account" style="grid-column: ${c.startHour+1} / 25;" title="${titleAttr}"><span class="bar-label">${label}</span></div>` +
-                   `<div class="bar bar-account" style="grid-column: 1 / ${c.endHour+1};" title="${titleAttr}"><span class="bar-label">${label}</span></div>`;
-          }
-          return `<div class="bar bar-account" style="grid-column: ${c.startHour+1} / ${c.endHour+1};" title="${titleAttr}"><span class="bar-label">${label}</span></div>`;
+          return `<div class="bar bar-account" style="grid-column: ${c.segStart+1} / ${c.segEnd+1};" title="${titleAttr}"><span class="bar-label">${label}</span></div>`;
         }).join('');
       } else {
         const ranges = buildRanges(byAgent[agent]);
