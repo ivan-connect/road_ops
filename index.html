@@ -793,7 +793,7 @@
     weekContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     try {
       const url = forceRefresh ? `${WEBHOOK_URL}?refresh=true` : WEBHOOK_URL;
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       rawData = await res.json();
       updatedLabel.textContent = rawData.updatedAt
