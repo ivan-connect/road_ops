@@ -770,11 +770,12 @@
     });
   });
 
-  async function loadData() {
+  async function loadData(forceRefresh = false) {
     dayContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     weekContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     try {
-      const res = await fetch(WEBHOOK_URL);
+      const url = forceRefresh ? `${WEBHOOK_URL}?refresh=true` : WEBHOOK_URL;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       rawData = await res.json();
       updatedLabel.textContent = rawData.updatedAt
@@ -1211,7 +1212,7 @@
   tipoServicioSelect.addEventListener('change', renderHeatmap);
 
   datePicker.addEventListener('change', () => { renderDay(); renderWeek(); renderCoverage(); });
-  refreshBtn.addEventListener('click', loadData);
+  refreshBtn.addEventListener('click', () => loadData(true));
 
   loadData();
 </script>
