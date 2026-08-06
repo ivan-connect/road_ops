@@ -834,12 +834,20 @@
     return ranges;
   }
 
+  function normalizeName(s) {
+    return (s || '')
+      .toString()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
   function getCuentasTCByAgent(dateVal) {
     const map = {};
     for (const c of (rawData.cuentasTC || [])) {
       if (c.date !== dateVal) continue;
-      if (!map[c.agent]) map[c.agent] = [];
-      map[c.agent].push(c);
+      const key = normalizeName(c.agent);
+      if (!map[key]) map[key] = [];
+      map[key].push(c);
     }
     return map;
   }
@@ -925,12 +933,17 @@
         html += `<div class="team-section-row"><div class="team-section-label">${TEAM_LABELS[lastTeamShown] || lastTeamShown}</div></div>`;
       }
       const isTC = agentTeam[agent] === 'TC';
-      const tcCuentas = cuentasTCByAgent[agent];
+      const tcCuentas = cuentasTCByAgent[normalizeName(agent)];
       let barsHtml;
       if (isTC && tcCuentas && tcCuentas.length) {
         barsHtml = tcCuentas.map(c => {
           const label = (c.funciones && c.funciones.length ? c.funciones.join(' + ') : (c.label || ''));
           const titleAttr = (c.funciones && c.funciones.length ? c.funciones.join(', ') : label);
+          if (c.endHour <= c.startHour) {
+            // Turno que cruza la medianoche: partir en dos segmentos visuales
+            return `<div class="bar bar-account" style="grid-column: ${c.startHour+1} / 25;" title="${titleAttr}"><span class="bar-label">${label}</span></div>` +
+                   `<div class="bar bar-account" style="grid-column: 1 / ${c.endHour+1};" title="${titleAttr}"><span class="bar-label">${label}</span></div>`;
+          }
           return `<div class="bar bar-account" style="grid-column: ${c.startHour+1} / ${c.endHour+1};" title="${titleAttr}"><span class="bar-label">${label}</span></div>`;
         }).join('');
       } else {
