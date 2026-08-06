@@ -405,6 +405,10 @@
     padding: 0 4px;
     pointer-events: none;
   }
+  .bar-unknown {
+    background: linear-gradient(180deg, rgba(39,155,176,0.35) 0%, rgba(39,155,176,0.2) 100%);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 0 1px rgba(39,155,176,0.25);
+  }
 
   .now-line {
     position: absolute;
@@ -848,23 +852,57 @@
     return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
   }
 
-  function getCuentasTCByAgent(dateVal) {
+  function getCuentasTCSegments(dateVal) {
     const prevDate = addDaysToDateStr(dateVal, -1);
     const map = {};
-    for (const c of (rawData.cuentasTC || [])) {
-      const isOvernight = c.endHour <= c.startHour;
-      let seg = null;
-      if (c.date === dateVal) {
-        seg = isOvernight ? { segStart: c.startHour, segEnd: 24 } : { segStart: c.startHour, segEnd: c.endHour };
-      } else if (c.date === prevDate && isOvernight) {
-        seg = { segStart: 0, segEnd: c.endHour };
-      }
-      if (!seg) continue;
-      const key = normalizeName(c.agent);
+    const pushSeg = (agent, segStart, segEnd, label) => {
+      const key = normalizeName(agent);
       if (!map[key]) map[key] = [];
-      map[key].push({ ...c, ...seg });
+      map[key].push({ segStart, segEnd, label });
+    };
+    for (const c of (rawData.cuentasTC || [])) {
+      // hora_fin en turnos_tc es inclusiva (ej. "hasta las 12" = trabaja hasta las 13:00)
+      const endHourExclusive = c.endHour + 1;
+      const isOvernight = endHourExclusive <= c.startHour;
+      const label = (c.funciones && c.funciones.length ? c.funciones.join(' + ') : (c.label || ''));
+      if (c.date === dateVal) {
+        if (isOvernight) pushSeg(c.agent, c.startHour, 24, label);
+        else pushSeg(c.agent, c.startHour, endHourExclusive, label);
+      } else if (c.date === prevDate && isOvernight) {
+        pushSeg(c.agent, 0, endHourExclusive, label);
+      }
     }
     return map;
+  }
+
+  function buildAccountBars(agent, hours, segMap) {
+    const sortedHours = [...hours].sort((a, b) => a - b);
+    if (!sortedHours.length) return '';
+    const segs = segMap[normalizeName(agent)] || [];
+    const hourLabel = {};
+    for (const h of sortedHours) {
+      const match = segs.find(s => h >= s.segStart && h < s.segEnd);
+      hourLabel[h] = match ? match.label : null;
+    }
+    const groups = [];
+    let curStart = sortedHours[0], curLabel = hourLabel[sortedHours[0]], prev = sortedHours[0];
+    for (let i = 1; i < sortedHours.length; i++) {
+      const h = sortedHours[i];
+      if (h === prev + 1 && hourLabel[h] === curLabel) {
+        prev = h;
+      } else {
+        groups.push([curStart, prev, curLabel]);
+        curStart = h; curLabel = hourLabel[h]; prev = h;
+      }
+    }
+    groups.push([curStart, prev, curLabel]);
+    return groups.map(([s, e, label]) => {
+      const known = !!label;
+      const cls = known ? 'bar bar-account' : 'bar bar-account bar-unknown';
+      const labelHtml = known ? `<span class="bar-label">${label}</span>` : '';
+      const titleAttr = known ? label : 'Cuenta no asignada';
+      return `<div class="${cls}" style="grid-column: ${s+1} / ${e+2};" title="${titleAttr}">${labelHtml}</div>`;
+    }).join('');
   }
 
 
@@ -941,7 +979,7 @@
           ${Array.from({length:24},(_,h)=>`<div class="hour-label">${String(h).padStart(2,'0')}</div>`).join('')}
         </div>
         <div class="gantt-body" id="gantt-body">`;
-    const cuentasTCByAgent = getCuentasTCByAgent(dateVal);
+    const cuentasTCSegMap = getCuentasTCSegments(dateVal);
     let lastTeamShown = null;
     for (const agent of agentNames) {
       if (isAllView && agentTeam[agent] !== lastTeamShown) {
@@ -949,14 +987,9 @@
         html += `<div class="team-section-row"><div class="team-section-label">${TEAM_LABELS[lastTeamShown] || lastTeamShown}</div></div>`;
       }
       const isTC = agentTeam[agent] === 'TC';
-      const tcCuentas = cuentasTCByAgent[normalizeName(agent)];
       let barsHtml;
-      if (isTC && tcCuentas && tcCuentas.length) {
-        barsHtml = tcCuentas.map(c => {
-          const label = (c.funciones && c.funciones.length ? c.funciones.join(' + ') : (c.label || ''));
-          const titleAttr = (c.funciones && c.funciones.length ? c.funciones.join(', ') : label);
-          return `<div class="bar bar-account" style="grid-column: ${c.segStart+1} / ${c.segEnd+1};" title="${titleAttr}"><span class="bar-label">${label}</span></div>`;
-        }).join('');
+      if (isTC) {
+        barsHtml = buildAccountBars(agent, byAgent[agent], cuentasTCSegMap);
       } else {
         const ranges = buildRanges(byAgent[agent]);
         barsHtml = ranges.map(([s,e]) => `<div class="bar" style="grid-column: ${s+1} / ${e+2};"></div>`).join('');
