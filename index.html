@@ -736,7 +736,6 @@
 
 <script>
   const WEBHOOK_URL = "https://iagb.app.n8n.cloud/webhook/b81f597c-d181-4545-9a2a-a08cb3188e61";
-  const DATA_JSON_URL = "./data.json";
   const DAY_NAMES = ["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
   const WEEK_ORDER = [1,2,3,4,5,6,0]; // lunes..domingo
   const WEEK_SHORT = { 1:"Lun", 2:"Mar", 3:"Mié", 4:"Jue", 5:"Vie", 6:"Sáb", 0:"Dom" };
@@ -793,7 +792,7 @@
     dayContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     weekContent.innerHTML = '<div class="state-msg">Cargando datos…</div>';
     try {
-      const url = forceRefresh ? `${WEBHOOK_URL}?refresh=true` : `${DATA_JSON_URL}?t=${Date.now()}`;
+      const url = forceRefresh ? `${WEBHOOK_URL}?refresh=true` : WEBHOOK_URL;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       rawData = await res.json();
@@ -814,11 +813,9 @@
       const msg = `
         <div class="state-msg error">
           No se pudo cargar el horario.<br>
-          ${forceRefresh
-            ? (isCors
-                ? 'Esto suele pasar por CORS: el webhook de n8n no está devolviendo el header Access-Control-Allow-Origin. Revisa la configuración del nodo Webhook.'
-                : 'Error: ' + err.message)
-            : 'No se encontró data.json en el repo, o falló su carga. Error: ' + err.message}
+          ${isCors
+            ? 'Esto suele pasar por CORS: el webhook de n8n no está devolviendo el header Access-Control-Allow-Origin. Revisa la configuración del nodo Webhook.'
+            : 'Error: ' + err.message}
         </div>`;
       dayContent.innerHTML = msg;
       weekContent.innerHTML = msg;
